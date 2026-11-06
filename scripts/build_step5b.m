@@ -40,6 +40,13 @@ add_block('simulink/Sinks/Terminator',[mdl '/Term_otdr'],'Position',[po(1)+40 po
 pt = get_param([mdl '/Term_otdr'],'PortHandles');
 add_line(mdl,pi_.Outport(1),pt.Inport(1),'autorouting','on');
 
+% the placeholder notes of part A become real labels
+for an = find_system(mdl,'SearchDepth',1,'FindAll','on','Type','annotation').'
+    t = get_param(an,'PlainText');
+    if startsWith(t,'FUT (coherent)'),   set_param(an,'PlainText','FUT (coherent): sum of echoes, Shang Eq. 4'); end
+    if startsWith(t,'FUT (incoherent)'), set_param(an,'PlainText','FUT (incoherent): powers add, no phase'); end
+end
+
 save_system(mdl);
 fprintf('Step 5B wired and saved.\n');
 end
