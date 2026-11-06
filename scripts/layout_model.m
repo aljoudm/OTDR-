@@ -41,6 +41,11 @@ end
 S.gain = [60 30];  S.math = [50 30];  S.sum = [30 30];  S.tag = [70 20];  S.rnd = [70 30];
 S.term = [20 20]; S.sine = [50 30];  S.const = [60 30];  S.prod = [40 40];
 
+%% 1b) OTDR power must see the same backward circulator loss as the coherent field: g_cir^2 on power
+if getSimulinkBlockHandle([mdl '/Gain_g_cir2']) < 0 || getSimulinkBlockHandle([mdl '/Gain_g_cir2']) == 0
+    add_block('simulink/Math Operations/Gain',[mdl '/Gain_g_cir2'],'Gain','g_cir^2');
+end
+
 %% 2b) block settings that affect the geometry
 for nm = {'Sum_otdr','Sum_dd','Sum_coh'}
     set_param([mdl '/' nm{1}],'Inputs','|++','NamePlacement','alternate');   % in1 left, in2 bottom; name above
@@ -67,24 +72,24 @@ place(mdl,'p_frame',    630, Ya+80,   S.const, {});
 place(mdl,'AOM',        770, Ya,      S.prod, {'in',1});
 pa = pport(mdl,'AOM','out',1);  Y1 = pa(2);       % axis of everything downstream
 place(mdl,'EDFA',       960, Y1, [60 60], {'in',1});
-place(mdl,'From_Eback', 1060, Y1+27, S.tag, {});
-place(mdl,'Circulator', 1250, Y1, [60 80], {'in',1});
+place(mdl,'From_Eback', 1180, Y1+27, S.tag, {});
+place(mdl,'Circulator', 1370, Y1, [60 80], {'in',1});
 pc2 = pport(mdl,'Circulator','out',2);
-place(mdl,'Goto_ER',    1430, pc2(2), S.tag, {});
-place(mdl,'Goto_Efwd',  1370, Y1-70, S.tag, {});
-place(mdl,'FUT_coherent',1530, Y1, [120 70], {'in',1});
+place(mdl,'Goto_ER',    1550, pc2(2), S.tag, {});
+place(mdl,'Goto_Efwd',  1490, Y1-70, S.tag, {});
+place(mdl,'FUT_coherent',1710, Y1, [120 70], {'in',1});
 pf = pport(mdl,'FUT_coherent','out',1);
-place(mdl,'Goto_Eback', 1770, pf(2), S.tag, {});
+place(mdl,'Goto_Eback', 1950, pf(2), S.tag, {});
 pv = pport(mdl,'FUT_coherent','in',2);
-place(mdl,'From_vib',   1380, Y1+90, S.tag, {});
+place(mdl,'From_vib',   1500, Y1+90, S.tag, {});
 % -- incoherent chain (axis Yi)
 Yi = Y1 + 170;
-place(mdl,'From_Efwd',     1000, Yi, S.tag, {});
-place(mdl,'Abs_inc',       1190, Yi, S.math, {});
-place(mdl,'Sq_inc',        1360, Yi, S.math, {});
-place(mdl,'FUT_incoherent',1530, Yi, [120 70], {'in',1});
+place(mdl,'From_Efwd',     1180, Yi, S.tag, {});
+place(mdl,'Abs_inc',       1370, Yi, S.math, {});
+place(mdl,'Sq_inc',        1540, Yi, S.math, {});
+place(mdl,'FUT_incoherent',1710, Yi, [120 70], {'in',1});
 pi_ = pport(mdl,'FUT_incoherent','out',1);
-place(mdl,'Goto_PR',       1770, pi_(2), S.tag, {});
+place(mdl,'Goto_PR',       1950, pi_(2), S.tag, {});
 % -- vibration sources (bottom left)
 Yv = Y1 + 450;
 place(mdl,'Sine_v1', 60,  Yv-25, S.sine, {});
@@ -95,6 +100,7 @@ place(mdl,'Goto_vib',250, Yv,    S.tag, {});
 C  = [400 590 780 970 1220 1400];             % From | Abs | Square | Gain | Sum | output
 Yo = Yi + 170;  Yd = Yo + 150;  Yc = Yd + 150;  dn = 80;
 place(mdl,'From_PR',      C(1), Yo, S.tag, {});
+place(mdl,'Gain_g_cir2',  C(2), Yo, S.gain, {});
 place(mdl,'Gain_R_otdr',  C(4), Yo, S.gain, {});
 place(mdl,'Sum_otdr',     C(5), Yo, S.sum, {});
 place(mdl,'Term_det_otdr',C(6), Yo, S.term, {});
@@ -129,7 +135,7 @@ L = { 'Rand_phase',1,'Sum',1;            'Sum',1,'Unit Delay',1;        'Unit De
       'From_Efwd',1,'Abs_inc',1;         'Abs_inc',1,'Sq_inc',1;         'Sq_inc',1,'FUT_incoherent',1
       'FUT_incoherent',1,'Goto_PR',1
       'Sine_v1',1,'Mux_vib',1;           'Sine_v2',1,'Mux_vib',2;        'Mux_vib',1,'Goto_vib',1
-      'From_PR',1,'Gain_R_otdr',1;       'Gain_R_otdr',1,'Sum_otdr',1;   'Sum_otdr',1,'Term_det_otdr',1
+      'From_PR',1,'Gain_g_cir2',1;       'Gain_g_cir2',1,'Gain_R_otdr',1; 'Gain_R_otdr',1,'Sum_otdr',1;   'Sum_otdr',1,'Term_det_otdr',1
       'Noise_otdr',1,'Sum_otdr',2
       'From_ER_dd',1,'Abs_dd',1;         'Abs_dd',1,'Sq_dd',1;           'Sq_dd',1,'Gain_R_dd',1
       'Gain_R_dd',1,'Sum_dd',1;          'Sum_dd',1,'Term_det_dd',1;     'Noise_dd',1,'Sum_dd',2
@@ -144,21 +150,38 @@ end
 
 %% 5) annotations: titles above their section, never on a line
 note = @(txt,x,y) set_pos(Simulink.Annotation(mdl,txt),[x y]);
-note('Narrow-linewidth laser (NLL): phase random walk', 40, Ya-190);
+note(sprintf('NLL: phase\nrandom walk'), 40, 215);
 note('99:1 coupler (Shang Fig. 16)',  480, Ya-60);
 note('AOM (pulse cutting)',           745, Ya-60);
 note('EDFA',                          965, Ya-60);
-note('Circulator',                    1250, Ya-60);
-note('FUT (coherent): sum of echoes, Shang Eq. 4', 1530, Y1-70);
-note('FUT (incoherent): powers add, no phase',     1000, Yi-70);
-note('Vibration of the two events (Phi0, f_v)', 60, Yv-75);
-note('OTDR detector (Fig. 2)',          C(1), Yo-50);
+note('Circulator',                    1370, Ya-60);
+note('FUT (coherent): sum of echoes, Shang Eq. 4', 1710, Y1-70);
+note('FUT (incoherent): powers add, no phase',     1180, Yi-70);
+note('OTDR detector (Fig. 2): backward circulator loss g_cir^2, then R_pd and noise', C(1), Yo-50);
 note('Phi-OTDR detector (Fig. 3)',      C(1), Yd-50);
 note('COTDR detector (Fig. 4)',         C(1), Yc-50);
 note(sprintf(['Goto/From tags: E_fwd = forward field to the incoherent branch, E_back = backscatter returning into the circulator,\n' ...
-              'E_R_det = backscatter to the detectors, LO_det = local oscillator, vib = vibration phases, P_R = OTDR backscattered power']), 90, Yc+150);
+              'E_R_det = backscatter to the detectors, LO_det = local oscillator, vib = vibration phases, P_R = OTDR backscattered power']), 60, Yc+200);
 
+%% 6) section areas (light backgrounds behind the blocks)
+groups = struct( ...
+  'title', {'1  Source: NLL, 99:1 coupler, AOM, EDFA (Shang Figs. 2-4 and 16)', ...
+            '2  Circulator and fibre under test: coherent (Eq. 4) and incoherent', ...
+            '3  Detectors: OTDR (Fig. 2), Phi-OTDR (Fig. 3), COTDR (Fig. 4), with receiver noise', ...
+            '4  Vibration sources: two events'}, ...
+  'color', {[0.90 0.93 1.00], [0.90 0.97 0.92], [0.99 0.92 0.90], [0.97 0.95 0.86]}, ...
+  'blocks', {{'Rand_phase','Sum','Unit Delay','Const_mag','Scope','MagAng_laser','Gain_k_sig','Gain_k_lo','Goto_LO','p_frame','AOM','EDFA'}, ...
+             {'From_Eback','Circulator','Goto_ER','Goto_Efwd','FUT_coherent','Goto_Eback','From_vib','From_Efwd','Abs_inc','Sq_inc','FUT_incoherent','Goto_PR'}, ...
+             {'From_PR','Gain_g_cir2','Gain_R_otdr','Sum_otdr','Term_det_otdr','Noise_otdr','From_ER_dd','Abs_dd','Sq_dd','Gain_R_dd','Sum_dd','Term_det_dd','Noise_dd', ...
+              'From_ER_coh','From_LO','Conj_LO','Prod_coh','Gain_R_coh','Sum_coh','Term_det_coh','RI2C_noise','Noise_cI','Noise_cQ'}, ...
+             {'Sine_v1','Sine_v2','Mux_vib','Goto_vib'}});
+for g = 1:numel(groups)
+    P = zeros(numel(groups(g).blocks),4);
+    for k = 1:numel(groups(g).blocks), P(k,:) = get_param([mdl '/' groups(g).blocks{k}],'Position'); end
+    groups(g).rect = [min(P(:,1))-15, min(P(:,2))-55, max(P(:,3))+15 + 115*(g==1), max(P(:,4))+40];   % area 1: room for the EDFA output label
+end
 save_system(mdl);
+add_areas(mdl, groups);
 fprintf('Layout done and saved.\n');
 end
 
@@ -181,4 +204,50 @@ if ~isempty(ref)
     d = yc - pp(2);
     set_param(blk,'Position',get_param(blk,'Position') + [0 d 0 d]);
 end
+end
+
+function add_areas(mdl, groups)
+%  Simulink has no API to create Area annotations, so they are written into the model file:
+%  save, unzip the .slx, replace the area_annotation elements in system_root.xml, zip, reload.
+f = get_param(mdl,'FileName');
+close_system(mdl);
+tmp = tempname;  mkdir(tmp);  unzip(f,tmp);
+p = fullfile(tmp,'simulink','systems','system_root.xml');
+fid = fopen(p,'r','n','UTF-8');  s = fread(fid,'*char').';  fclose(fid);
+old = regexp(s,'\s*<Annotation SID="[^"]*">.*?</Annotation>','match');
+for i = 1:numel(old)
+    if contains(old{i},'area_annotation'), s = strrep(s,old{i},''); end
+end
+sid = max([0 str2double(regexp(s,'(?<=<Annotation SID=")\d+','match'))]);
+xml = '';
+for g = 1:numel(groups)
+    sid = sid + 1;  r = round(groups(g).rect);  c = groups(g).color;
+    col = sprintf('[%f, %f, %f]',c);
+    rows = { sprintf('  <Annotation SID="%d">',sid)
+             ['    <P Name="Name">' xmlesc(groups(g).title) '</P>']
+             sprintf('    <P Name="Position">[%d, %d, %d, %d]</P>',r)
+             '    <P Name="InternalMargins">[0, 0, 0, 0]</P>'
+             '    <P Name="FixedHeight">on</P>'
+             '    <P Name="FixedWidth">on</P>'
+             ['    <P Name="ForegroundColor">' col '</P>']
+             ['    <P Name="BackgroundColor">' col '</P>']
+             '    <P Name="DropShadow">off</P>'
+             '    <P Name="AnnotationType">area_annotation</P>'
+             '    <P Name="ZOrder">-1</P>'
+             '    <P Name="FontSize">14</P>'
+             '    <P Name="FontWeight">bold</P>'
+             '  </Annotation>' };
+    xml = [xml strjoin(rows.', newline) newline]; %#ok<AGROW>
+end
+k = strfind(s,'</System>');  k = k(end);
+s = [s(1:k-1) xml s(k:end)];
+fid = fopen(p,'w','n','UTF-8');  fwrite(fid,s,'char');  fclose(fid);
+d = dir(tmp);  names = {d(~ismember({d.name},{'.','..'})).name};
+zf = [tempname '.zip'];  zip(zf,names,tmp);  movefile(zf,f,'f');
+rmdir(tmp,'s');
+load_system(f);
+end
+
+function t = xmlesc(t)
+t = strrep(strrep(strrep(t,'&','&amp;'),'<','&lt;'),'>','&gt;');
 end
