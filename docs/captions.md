@@ -42,3 +42,6 @@ The model is ONE connected model; the four light-coloured areas only group the b
 
 ### `04_vibration.pdf` / `04_vibration.png`
 **Section 4, vibration sources.** One sine wave per vibration event (amplitude Phi0, frequency f_v; Sample time Ts_slow = one pulse) combined by a Mux into the 2-element vibration vector sent to `FUT_coherent` through tag `vib`.
+
+### Step 7: DAQ (see `figures/model_sections/03_detectors.png` and `00_full_model.png`)
+**Data acquisition.** Each detector branch ends in a To Workspace block (Save format Array, Sample time Ts_slow = one pulse): `DAQ_otdr` -> `trace_otdr`, `DAQ_dd` -> `trace_dd` (Φ-OTDR intensity) and `DAQ_coh` -> `trace_coh` (COTDR, complex I + jQ). Each variable is logged as Ns x 1 x Np = 1969 x 1 x 2001 (samples along the fibre x pulses); the COTDR variable is complex.
