@@ -46,10 +46,13 @@ add_line(mdl, [get_param(laser,'Name') '/1'], 'Gain_k_lo/1',  'autorouting','on'
 add_line(mdl, 'Gain_k_sig/1', 'Disp_sig/1', 'autorouting','on');
 add_line(mdl, 'Gain_k_lo/1',  'Disp_lo/1',  'autorouting','on');
 
-% Label like Shang's figure
-add_block('built-in/Note', [mdl '/Note_coupler'], 'MakeNameUnique','on', ...
-    'Position',[x0 ySig-40]);
-set_param([mdl '/Note_coupler'],'Text','99:1 Coupler (Shang Fig. 16)');
+% Label like Shang's figure (annotations are not blocks: remove old one, add new)
+txt = '99:1 Coupler (Shang Fig. 16)';
+for an = find_system(mdl,'SearchDepth',1,'FindAll','on','Type','annotation').'
+    if strcmp(get_param(an,'PlainText'),txt), delete(an); end
+end
+note = Simulink.Annotation(mdl, txt);
+note.Position = [x0 ySig-45];
 
 set_param(mdl,'Dirty','on');
 fprintf('Step 2 built. Save the model (Ctrl+S) and run it.\n');
