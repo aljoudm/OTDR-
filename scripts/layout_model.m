@@ -55,6 +55,12 @@ for nm = {'Noise_otdr','Noise_dd','Noise_cI','Noise_cQ'}
     try, set_param([mdl '/' nm{1}],'VectorParams1D','off'); end              % frames are [1969x1], not 1-D
 end
 
+%% 2c) detector outputs: the DAQ (To Workspace) blocks of Step 7 replace the temporary Terminators
+nO = outname(mdl,'DAQ_otdr','Term_det_otdr');
+nD = outname(mdl,'DAQ_dd','Term_det_dd');
+nC = outname(mdl,'DAQ_coh','Term_det_coh');
+S.daq = [90 30];
+
 %% 3) grid
 Ya = 300;                                       % axis of laser, coupler, signal arm
 % -- laser section (axis rows 280 / 320 around the Mag-Angle block)
@@ -103,14 +109,14 @@ place(mdl,'From_PR',      C(1), Yo, S.tag, {});
 place(mdl,'Gain_g_cir2',  C(2), Yo, S.gain, {});
 place(mdl,'Gain_R_otdr',  C(4), Yo, S.gain, {});
 place(mdl,'Sum_otdr',     C(5), Yo, S.sum, {});
-place(mdl,'Term_det_otdr',C(6), Yo, S.term, {});
+place(mdl,nO, C(6), Yo, iff(startsWith(nO,'DAQ'),S.daq,S.term), {});
 place(mdl,'Noise_otdr',   C(5)+15-S.rnd(1)/2, Yo+dn, S.rnd, {}, 'up');
 place(mdl,'From_ER_dd',   C(1), Yd, S.tag, {});
 place(mdl,'Abs_dd',       C(2), Yd, S.math, {});
 place(mdl,'Sq_dd',        C(3), Yd, S.math, {});
 place(mdl,'Gain_R_dd',    C(4), Yd, S.gain, {});
 place(mdl,'Sum_dd',       C(5), Yd, S.sum, {});
-place(mdl,'Term_det_dd',  C(6), Yd, S.term, {});
+place(mdl,nD, C(6), Yd, iff(startsWith(nD,'DAQ'),S.daq,S.term), {});
 place(mdl,'Noise_dd',     C(5)+15-S.rnd(1)/2, Yd+dn, S.rnd, {}, 'up');
 place(mdl,'From_ER_coh',  C(1), Yc, S.tag, {});
 place(mdl,'From_LO',      C(1), Yc+60, S.tag, {});
@@ -118,7 +124,7 @@ place(mdl,'Conj_LO',      C(2), Yc+60, S.math, {});
 place(mdl,'Prod_coh',     C(3), Yc, S.prod, {'in',1});
 place(mdl,'Gain_R_coh',   C(4), Yc, S.gain, {});
 place(mdl,'Sum_coh',      C(5), Yc, S.sum, {});
-place(mdl,'Term_det_coh', C(6), Yc, S.term, {});
+place(mdl,nC, C(6), Yc, iff(startsWith(nC,'DAQ'),S.daq,S.term), {});
 place(mdl,'RI2C_noise',   C(5)-120, Yc+dn+20, [50 40], {});
 place(mdl,'Noise_cI',     C(5)-310, Yc+dn+5,  S.rnd, {});
 place(mdl,'Noise_cQ',     C(5)-310, Yc+dn+55, S.rnd, {});
@@ -135,12 +141,12 @@ L = { 'Rand_phase',1,'Sum',1;            'Sum',1,'Unit Delay',1;        'Unit De
       'From_Efwd',1,'Abs_inc',1;         'Abs_inc',1,'Sq_inc',1;         'Sq_inc',1,'FUT_incoherent',1
       'FUT_incoherent',1,'Goto_PR',1
       'Sine_v1',1,'Mux_vib',1;           'Sine_v2',1,'Mux_vib',2;        'Mux_vib',1,'Goto_vib',1
-      'From_PR',1,'Gain_g_cir2',1;       'Gain_g_cir2',1,'Gain_R_otdr',1; 'Gain_R_otdr',1,'Sum_otdr',1;   'Sum_otdr',1,'Term_det_otdr',1
+      'From_PR',1,'Gain_g_cir2',1;       'Gain_g_cir2',1,'Gain_R_otdr',1; 'Gain_R_otdr',1,'Sum_otdr',1;   'Sum_otdr',1,nO,1
       'Noise_otdr',1,'Sum_otdr',2
       'From_ER_dd',1,'Abs_dd',1;         'Abs_dd',1,'Sq_dd',1;           'Sq_dd',1,'Gain_R_dd',1
-      'Gain_R_dd',1,'Sum_dd',1;          'Sum_dd',1,'Term_det_dd',1;     'Noise_dd',1,'Sum_dd',2
+      'Gain_R_dd',1,'Sum_dd',1;          'Sum_dd',1,nD,1;     'Noise_dd',1,'Sum_dd',2
       'From_ER_coh',1,'Prod_coh',1;      'From_LO',1,'Conj_LO',1;        'Conj_LO',1,'Prod_coh',2
-      'Prod_coh',1,'Gain_R_coh',1;       'Gain_R_coh',1,'Sum_coh',1;     'Sum_coh',1,'Term_det_coh',1
+      'Prod_coh',1,'Gain_R_coh',1;       'Gain_R_coh',1,'Sum_coh',1;     'Sum_coh',1,nC,1
       'Noise_cI',1,'RI2C_noise',1;       'Noise_cQ',1,'RI2C_noise',2;    'RI2C_noise',1,'Sum_coh',2 };
 for i = 1:size(L,1)
     ps = get_param([mdl '/' L{i,1}],'PortHandles');
@@ -172,8 +178,8 @@ groups = struct( ...
   'color', {[0.90 0.93 1.00], [0.90 0.97 0.92], [0.99 0.92 0.90], [0.97 0.95 0.86]}, ...
   'blocks', {{'Rand_phase','Sum','Unit Delay','Const_mag','Scope','MagAng_laser','Gain_k_sig','Gain_k_lo','Goto_LO','p_frame','AOM','EDFA'}, ...
              {'From_Eback','Circulator','Goto_ER','Goto_Efwd','FUT_coherent','Goto_Eback','From_vib','From_Efwd','Abs_inc','Sq_inc','FUT_incoherent','Goto_PR'}, ...
-             {'From_PR','Gain_g_cir2','Gain_R_otdr','Sum_otdr','Term_det_otdr','Noise_otdr','From_ER_dd','Abs_dd','Sq_dd','Gain_R_dd','Sum_dd','Term_det_dd','Noise_dd', ...
-              'From_ER_coh','From_LO','Conj_LO','Prod_coh','Gain_R_coh','Sum_coh','Term_det_coh','RI2C_noise','Noise_cI','Noise_cQ'}, ...
+             {'From_PR','Gain_g_cir2','Gain_R_otdr','Sum_otdr',nO,'Noise_otdr','From_ER_dd','Abs_dd','Sq_dd','Gain_R_dd','Sum_dd',nD,'Noise_dd', ...
+              'From_ER_coh','From_LO','Conj_LO','Prod_coh','Gain_R_coh','Sum_coh',nC,'RI2C_noise','Noise_cI','Noise_cQ'}, ...
              {'Sine_v1','Sine_v2','Mux_vib','Goto_vib'}});
 for g = 1:numel(groups)
     P = zeros(numel(groups(g).blocks),4);
@@ -250,4 +256,10 @@ end
 
 function t = xmlesc(t)
 t = strrep(strrep(strrep(t,'&','&amp;'),'<','&lt;'),'>','&gt;');
+end
+
+function r = iff(c,a,b), if c, r = a; else, r = b; end, end
+
+function n = outname(mdl, daq, term)
+if getSimulinkBlockHandle([mdl '/' daq]) > 0, n = daq; else, n = term; end
 end
