@@ -5,7 +5,12 @@
 %  Every block reads its values from these variables (no hard-coded numbers).
 %  NOTE: no "clear" here — InitFcn runs in the base workspace and would wipe "out".
 
-rng(1);                                % fixed seed -> repeatable fibre
+%  Optional overrides for the validation experiments: put a struct called ovr in the base workspace
+%  (fields: seed, Tw, f_rep, T_sim, z_v, L_v, f_v, Phi0), e.g. ovr = struct('Tw',50e-9);
+%  Without it the default values below are used.
+if ~exist('ovr','var') || ~isstruct(ovr), ovr = struct(); end
+
+rng(pick(ovr,'seed',1));               % fixed seed -> repeatable fibre
 
 %% Physical constants and fibre
 c        = 2.998e8;                    % speed of light in vacuum [m/s]
@@ -22,18 +27,18 @@ Nz   = ceil(L/dz);                     % number of fibre cells
 z    = (0:Nz-1).'*dz;                  % cell positions [m]
 
 %% Probe pulse (AOM) — spatial resolution Eq. (5): dz_res = c*Tw/(2n)
-Tw      = 100e-9;                      % pulse width [s]
+Tw      = pick(ovr,'Tw',100e-9);       % pulse width [s]
 Nw      = round(Tw*fs);                % pulse length in samples
 dz_res  = c*Tw/(2*n);                  % spatial resolution (~10.2 m)
 Ns      = Nz + Nw;                     % samples per trace (frame length)
 p_frame = zeros(Ns,1); p_frame(1:Nw) = 1;      % rectangular pulse frame
 
 %% Slow time (pulse to pulse)
-f_rep   = 10e3;                        % pulse repetition frequency [Hz]
+f_rep   = pick(ovr,'f_rep',10e3);      % pulse repetition frequency [Hz]
 Ts_slow = 1/f_rep;                     % Simulink fixed step = one pulse
 f_rep_max = c/(2*n*L);                 % ~51 kHz for 2 km
 assert(f_rep <= f_rep_max, 'f_rep is above c/(2nL): traces would overlap');
-T_sim   = 0.2;                         % stop time -> T_sim*f_rep + 1 pulses (step at t=0 counts)
+T_sim   = pick(ovr,'T_sim',2000/f_rep);  % stop time -> T_sim*f_rep + 1 pulses (step at t=0 counts)
 
 %% Laser (narrow linewidth, Shang: < 100 kHz)
 P_laser = 10e-3;                       % CW power [W]
@@ -55,10 +60,10 @@ r       = sqrt(B_cell)*(randn(Nz,1)+1j*randn(Nz,1))/sqrt(2);
 att     = exp(-alpha_p*z);             % round-trip FIELD attenuation
 
 %% Vibration events (intruders) — round-trip phase amplitude
-z_v   = [1200 1500];                   % start positions [m]
-L_v   = [10 10];                       % disturbed lengths [m]
-f_v   = [200 500];                     % vibration frequencies [Hz]
-Phi0  = [1 0.5];                       % phase amplitudes [rad]
+z_v   = pick(ovr,'z_v',[1200 1500]);   % start positions [m]
+L_v   = pick(ovr,'L_v',[10 10]);       % disturbed lengths [m]
+f_v   = pick(ovr,'f_v',[200 500]);     % vibration frequencies [Hz]
+Phi0  = pick(ovr,'Phi0',[1 0.5]);      % phase amplitudes [rad]
 g_vib = zeros(Nz,numel(z_v));          % 0 before, ramps 0->1 inside, 1 after
 for e = 1:numel(z_v)
     g_vib(:,e) = min(max((z - z_v(e))/L_v(e),0),1);
@@ -73,3 +78,8 @@ GL = 10;                               % gauge length [samples]
 
 fprintf('dz=%.2f m | resolution=%.1f m | Ns=%d | pulses=%d | f_rep_max=%.1f kHz\n', ...
         dz, dz_res, Ns, round(T_sim*f_rep)+1, f_rep_max/1e3);
+
+function v = pick(o, name, default)
+%PICK  value of the override field if present, else the default
+if isfield(o,name), v = o.(name); else, v = default; end
+end

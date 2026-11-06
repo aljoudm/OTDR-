@@ -51,8 +51,15 @@ for nm = {'Sum_otdr','Sum_dd','Sum_coh'}
     set_param([mdl '/' nm{1}],'Inputs','|++','NamePlacement','alternate');   % in1 left, in2 bottom; name above
 end
 set_param([mdl '/Sum'],'NamePlacement','alternate');
-for nm = {'Noise_otdr','Noise_dd','Noise_cI','Noise_cQ'}
-    try, set_param([mdl '/' nm{1}],'VectorParams1D','off'); end              % frames are [1969x1], not 1-D
+% Receiver noise: ONE independent random sequence per fibre sample. A scalar Seed would give every
+% element of the frame the same sequence (fully correlated noise), so the Seed is a vector (Ns x 1);
+% each noise source has its own block of seeds.
+noiseNames = {'Noise_otdr','Noise_dd','Noise_cI','Noise_cQ'};
+for i = 1:numel(noiseNames)
+    try
+        set_param([mdl '/' noiseNames{i}],'VectorParams1D','off', ...                       % frames are [1969x1], not 1-D
+                  'Seed',sprintf('%d+(1:Ns).''',10000*(10+i)));
+    end
 end
 
 %% 2c) detector outputs: the DAQ (To Workspace) blocks of Step 7 replace the temporary Terminators

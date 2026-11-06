@@ -45,3 +45,23 @@ The model is ONE connected model; the four light-coloured areas only group the b
 
 ### Step 7: DAQ (see `figures/model_sections/03_detectors.png` and `00_full_model.png`)
 **Data acquisition.** Each detector branch ends in a To Workspace block (Save format Array, Sample time Ts_slow = one pulse): `DAQ_otdr` -> `trace_otdr`, `DAQ_dd` -> `trace_dd` (Φ-OTDR intensity) and `DAQ_coh` -> `trace_coh` (COTDR, complex I + jQ). Each variable is logged as Ns x 1 x Np = 1969 x 1 x 2001 (samples along the fibre x pulses); the COTDR variable is complex.
+
+## Step 8: simulation results (`figures/`, default parameters; run `out = sim('das_model'); das_postprocess`)
+
+### `figures/fig1_otdr_trace.png`
+**Conventional OTDR trace (Fig. 2 system).** The detected power in dB falls on a straight line (the dips at both ends are the pulse entering and leaving the fibre). The fitted slope is 0.400 dB/km, i.e. twice the fibre attenuation (0.2 dB/km) because the light travels the fibre twice (round trip): the power equation of the OTDR. The small ripple is the receiver noise.
+
+### `figures/fig2_phiotdr_trace.png`
+**Single Φ-OTDR trace (Fig. 3 system).** With a coherent probe the backscattered fields of all scatterers inside the pulse interfere, so the intensity is a random speckle pattern along the fibre instead of a smooth line. Deep dips are the coherent-fading points described by Shang (Section 3.2).
+
+### `figures/fig3_waterfall.png`
+**Φ-OTDR waterfall (distance x time) with the static speckle removed.** Each column is one pulse. Two horizontal lines oscillate in time, at 1200 m and 1500 m: the two vibration events (200 Hz and 500 Hz). Everywhere else only receiver noise remains.
+
+### `figures/fig4_localisation.png`
+**Event localisation.** The standard deviation over slow time at every position is flat (receiver noise, 1 nA) except at the vibrations. The strongest peak is at 1209 m (the perturbed section starts at 1200 m; the maximum of the phase change lies inside the 10 m disturbed section); the second event appears at 1500 m. The fibre ends are excluded.
+
+### `figures/fig5_recovered_phase.png`
+**Vibration recovered with the COTDR.** The phase difference between a point after and a point before the event, with the common laser phase cancelled, is a sine of amplitude 1.00 rad, the amplitude of the 200 Hz vibration; the residual to an ideal sine is 0.03 rad.
+
+### `figures/fig6_spectrum.png`
+**Vibration spectrum.** A single line at 200 Hz with amplitude 1 rad: the vibration frequency and amplitude are recovered. The unambiguous range goes up to f_rep/2 = 5 kHz.

@@ -1,7 +1,7 @@
 function build_step6c
 %BUILD_STEP6C  Step 6, part C: the remaining noise sources and their wiring. Safe to re-run.
 %  Needs Noise_otdr (created by hand in Step 6B). Creates, with the same settings but a
-%  DIFFERENT Seed each (otherwise all noises would be identical):
+%  DIFFERENT, VECTOR Seed each (one seed per fibre sample; a scalar seed would make all samples identical):
 %    Noise_dd (Seed 12)                  -> Sum_dd/2
 %    Noise_cI (13), Noise_cQ (14) -> Real-Imag to Complex (RI2C_noise) -> Sum_coh/2
 %  and connects Noise_otdr -> Sum_otdr/2.
@@ -18,7 +18,7 @@ lh = get_param([mdl '/Noise_otdr'],'LineHandles');
 if lh.Outport(1) > 0, delete_line(lh.Outport(1)); end
 
 noise = @(nm,seed,p) add_block('simulink/Sources/Random Number',[mdl '/' nm],'Position',p, ...
-    'Mean','zeros(Ns,1)','Variance','sigma_n^2','Seed',num2str(seed),'SampleTime','Ts_slow','VectorParams1D','off');
+    'Mean','zeros(Ns,1)','Variance','sigma_n^2','Seed',sprintf('%d+(1:Ns).''',10000*seed),'SampleTime','Ts_slow','VectorParams1D','off');
 
 sd = get_param([mdl '/Sum_dd'],'Position');
 sc = get_param([mdl '/Sum_coh'],'Position');
