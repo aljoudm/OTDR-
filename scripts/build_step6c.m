@@ -18,7 +18,7 @@ lh = get_param([mdl '/Noise_otdr'],'LineHandles');
 if lh.Outport(1) > 0, delete_line(lh.Outport(1)); end
 
 noise = @(nm,seed,p) add_block('simulink/Sources/Random Number',[mdl '/' nm],'Position',p, ...
-    'Mean','zeros(Ns,1)','Variance','sigma_n^2','Seed',num2str(seed),'SampleTime','Ts_slow');
+    'Mean','zeros(Ns,1)','Variance','sigma_n^2','Seed',num2str(seed),'SampleTime','Ts_slow','VectorParams1D','off');
 
 sd = get_param([mdl '/Sum_dd'],'Position');
 sc = get_param([mdl '/Sum_coh'],'Position');

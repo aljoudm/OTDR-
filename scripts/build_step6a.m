@@ -36,7 +36,7 @@ add_line(mdl,'Gain_k_lo/1','Goto_LO/1','autorouting','on');
 %% (1) OTDR branch: power x R_pd, then noise
 yo = 200;                                   % axis of FUT_incoherent's output
 add('Math Operations/Gain','Gain_R_otdr',[X-10 yo-15 X+50 yo+15],'Gain','R_pd');
-add('Math Operations/Sum','Sum_otdr',[X+130 yo-10 X+150 yo+10],'Inputs','++');
+add('Math Operations/Sum','Sum_otdr',[X+130 yo-10 X+150 yo+10],'Inputs','|++');
 add('Sinks/Terminator','Term_det_otdr',[X+210 yo-10 X+230 yo+10]);
 add_line(mdl,'FUT_incoherent/1','Gain_R_otdr/1','autorouting','on');
 add_line(mdl,'Gain_R_otdr/1','Sum_otdr/1','autorouting','on');
@@ -48,7 +48,7 @@ add('Signal Routing/From','From_ER_dd',[X-10 yd-10 X+60 yd+10],'GotoTag','E_R_de
 add('Math Operations/Abs','Abs_dd',[X+90 yd-10 X+120 yd+10]);
 add('Math Operations/Math Function','Sq_dd',[X+150 yd-10 X+200 yd+10],'Function','square');
 add('Math Operations/Gain','Gain_R_dd',[X+230 yd-15 X+290 yd+15],'Gain','R_pd');
-add('Math Operations/Sum','Sum_dd',[X+350 yd-10 X+370 yd+10],'Inputs','++');
+add('Math Operations/Sum','Sum_dd',[X+350 yd-10 X+370 yd+10],'Inputs','|++');
 add('Sinks/Terminator','Term_det_dd',[X+430 yd-10 X+450 yd+10]);
 add_line(mdl,'From_ER_dd/1','Abs_dd/1','autorouting','on');
 add_line(mdl,'Abs_dd/1','Sq_dd/1','autorouting','on');
@@ -63,7 +63,7 @@ add('Signal Routing/From','From_LO',[X-10 yc+50 X+60 yc+70],'GotoTag','LO_det');
 add('Math Operations/Math Function','Conj_LO',[X+90 yc+50 X+140 yc+70],'Function','conj');
 add('Math Operations/Product','Prod_coh',[X+190 yc-15 X+220 yc+40],'Inputs','**');
 add('Math Operations/Gain','Gain_R_coh',[X+260 yc-5 X+320 yc+25],'Gain','R_pd');
-add('Math Operations/Sum','Sum_coh',[X+380 yc+5 X+400 yc+25],'Inputs','++');
+add('Math Operations/Sum','Sum_coh',[X+380 yc+5 X+400 yc+25],'Inputs','|++');
 add('Sinks/Terminator','Term_det_coh',[X+460 yc+5 X+480 yc+25]);
 add_line(mdl,'From_ER_coh/1','Prod_coh/1','autorouting','on');
 add_line(mdl,'From_LO/1','Conj_LO/1','autorouting','on');
