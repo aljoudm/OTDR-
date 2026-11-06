@@ -40,11 +40,15 @@ add_block('simulink/Sinks/Terminator',[mdl '/Term_otdr'],'Position',[po(1)+40 po
 pt = get_param([mdl '/Term_otdr'],'PortHandles');
 add_line(mdl,pi_.Outport(1),pt.Inport(1),'autorouting','on');
 
-% the placeholder notes of part A become real labels
+% the placeholder notes of part A become real labels (an annotation's text is replaced by a new one)
 for an = find_system(mdl,'SearchDepth',1,'FindAll','on','Type','annotation').'
-    t = get_param(an,'PlainText');
-    if startsWith(t,'FUT (coherent)'),   set_param(an,'PlainText','FUT (coherent): sum of echoes, Shang Eq. 4'); end
-    if startsWith(t,'FUT (incoherent)'), set_param(an,'PlainText','FUT (incoherent): powers add, no phase'); end
+    t = get_param(an,'PlainText');  newt = '';
+    if startsWith(t,'FUT (coherent)'),   newt = 'FUT (coherent): sum of echoes, Shang Eq. 4'; end
+    if startsWith(t,'FUT (incoherent)'), newt = 'FUT (incoherent): powers add, no phase'; end
+    if ~isempty(newt)
+        p = get_param(an,'Position');  delete(an);
+        n = Simulink.Annotation(mdl,newt);  n.Position = p(1:2);
+    end
 end
 
 save_system(mdl);
