@@ -1,0 +1,9 @@
+# Captions for the background figures (research paper)
+
+Each entry: image file, then the caption.
+
+### `figures/das_timeline.pdf` / `figures/das_timeline.png`
+**Development timeline of distributed acoustic sensing (DAS).** Adapted from Shang et al., Sensors 2022, Fig. 1. The qualitative stage (1976-2005) runs from the conventional OTDR (Barnoski, 1976) through coherent OTDR (Healey, 1982) and phase-sensitive OTDR (Taylor, 1993) to its first use for intrusion detection (2005). The quantitative stage (2013-2016) recovers the vibration waveform through phase demodulation (3x3 coupler, PGC and IQ demodulation). The performance-enhancement stage (2017-2021) improves sensitivity (ultrafast laser), frequency response (UWFBG) and coherent fading (frequency-division multiplexing). Script: `scripts/fig_das_timeline.m`.
+
+### `figures/das_overview_diagram.pdf` / `figures/das_overview_diagram.png`
+**Evolution OTDR -> Φ-OTDR -> COTDR as Simulink block diagrams.** Adapted from Shang et al., Sensors 2022, Figs. 2-4; each component is an empty Subsystem labelled with the parameter used in the simulation, and the same component keeps the same column in every row. Row 1 (OTDR): a pulsed source, EDFA, circulator, fibre under test (FUT) and an intensity photodetector (PD). Row 2 (Φ-OTDR): a narrow-linewidth laser (NLL) and an acousto-optic modulator (AOM) replace the pulsed source, so the probe pulses are coherent and the received intensity depends on the fibre phase. Row 3 (COTDR): the I/Q receiver mixes the backscatter with a local oscillator (LO) tapped from the laser, so the complex field (phase) is measured directly. Grey = inherited from the previous system; coral = new at this stage. The two blocks with two ports on one side (NLL and I/Q Rx, row 3) are drawn taller so that the main signal line stays perfectly horizontal. Model: `model/das_overview_diagram.slx`; script: `scripts/build_das_overview_diagram.m`.
