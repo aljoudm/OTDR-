@@ -54,6 +54,6 @@ end
 note = Simulink.Annotation(mdl, txt);
 note.Position = [x0 ySig-45];
 
-set_param(mdl,'Dirty','on');
-fprintf('Step 2 built. Save the model (Ctrl+S) and run it.\n');
+save_system(mdl);
+fprintf('Step 2 built and saved.\n');
 end
