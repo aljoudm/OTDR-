@@ -65,3 +65,20 @@ The model is ONE connected model; the four light-coloured areas only group the b
 
 ### `figures/fig6_spectrum.png`
 **Vibration spectrum.** A single line at 200 Hz with amplitude 1 rad: the vibration frequency and amplitude are recovered. The unambiguous range goes up to f_rep/2 = 5 kHz.
+
+## Validation experiments (`figures/experiments/`; numbers in `docs/validation_results.md`)
+
+### `figures/experiments/exp1_resolution.png`
+**Experiment 1, spatial resolution (Δz = cTw/2n = 10.2 m).** Standard deviation over time of the Φ-OTDR intensity around two vibration events of equal strength. Top: events 5 m apart (below the resolution) give one merged response of about 20 m; bottom: events 20 m apart give two separate responses of about 15 m each, with a gap at the noise floor between them. Red markers are the true event positions.
+
+### `figures/experiments/exp2_pulse_width.png`
+**Experiment 2, pulse width.** Tw = 50, 100 and 200 ns. The resolution Δz grows with the pulse (5.1, 10.2, 20.4 m) and so does the extent of the response (7.1, 15.3, 27.6 m), while the detected signal over the noise floor rises from 5 to 14 to 36: the resolution versus SNR trade-off.
+
+### `figures/experiments/exp3_aliasing.png`
+**Experiment 3, frequency limit.** A 6 kHz vibration sampled at f_rep = 10 kHz appears in the spectrum at 3998 Hz, i.e. at the alias |6000 - 10000| = 4000 Hz: the pulse repetition frequency limits the measurable vibration frequency to f_rep/2 = 5 kHz, and f_rep itself is limited to c/(2nL) so that traces do not overlap.
+
+### `figures/experiments/exp4_otdr_vs_phiotdr.png`
+**Experiment 4, OTDR versus Φ-OTDR with the same vibration.** Top: the standard deviation over time of the conventional OTDR is the same flat noise floor with the vibration on and off (the traces are identical, difference 0). Bottom: the Φ-OTDR shows two clear peaks at the events only when the vibration is on. The conventional OTDR is phase-insensitive; the coherent system is not.
+
+### `figures/experiments/exp5_fading.png`
+**Experiment 5, coherent fading (twelve different fibres).** Top left: phase error per fibre for the normal receiver (below 0.11 rad for all) and for a noisy receiver. Top right: with the noisy receiver the error grows as the backscatter amplitude at the two sampled points drops (an event on a fading point). Bottom: the recovered waveform for the best fibre (seed 11, 0.10 rad) and the worst (seed 8, 0.53 rad) against the injected 200 Hz sine.

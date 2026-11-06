@@ -6,7 +6,7 @@
 %  NOTE: no "clear" here — InitFcn runs in the base workspace and would wipe "out".
 
 %  Optional overrides for the validation experiments: put a struct called ovr in the base workspace
-%  (fields: seed, Tw, f_rep, T_sim, z_v, L_v, f_v, Phi0), e.g. ovr = struct('Tw',50e-9);
+%  (fields: seed, Tw, f_rep, T_sim, z_v, L_v, f_v, Phi0, sigma_n), e.g. ovr = struct('Tw',50e-9);
 %  Without it the default values below are used.
 if ~exist('ovr','var') || ~isstruct(ovr), ovr = struct(); end
 
@@ -71,7 +71,7 @@ end
 
 %% Photodetector
 R_pd    = 0.9;                         % responsivity [A/W]
-sigma_n = 1e-9;                        % receiver noise current (rms) [A]
+sigma_n = pick(ovr,'sigma_n',1e-9);    % receiver noise current (rms) [A]
 
 %% Processing
 GL = 10;                               % gauge length [samples]

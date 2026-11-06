@@ -12,17 +12,17 @@ R = struct();                                                   % results
 figopt = {'Resolution',150};
 
 %% 1) Spatial resolution: two events 5 m apart (below dz_res ~ 10 m) and 20 m apart
-c1 = {'z5',  struct('z_v',[1200 1205]); 'z20', struct('z_v',[1200 1220])};
+c1 = {'z5',  struct('z_v',[1200 1205],'Phi0',[1 1]); 'z20', struct('z_v',[1200 1220],'Phi0',[1 1])};   % two equally strong events
 for i = 1:2
     r = run_case(c1{i,2}, ['exp1_' c1{i,1}], '', false);
-    r.clusters = clusters(r.zax, r.Ev, 5e-9, 8);
+    r.groups = response_groups(r.zax, r.Ev);          % separate responses: runs above 2x the noise floor, split by gaps >= 3 samples
     R.exp1.(c1{i,1}) = r;
 end
 figure('Position',[100 100 900 600]);
 for i = 1:2
     r = R.exp1.(c1{i,1});
     subplot(2,1,i); plot(r.zax, r.Ev*1e9); grid on; xlim([1150 1280]); ylabel('Std over time (nA)');
-    title(sprintf('Event spacing %d m: %d peak(s) found', diff(c1{i,2}.z_v), numel(r.clusters)));
+    title(sprintf('Event spacing %d m: %d separate response(s)', diff(c1{i,2}.z_v), size(r.groups,1)));
     hold on; plot(c1{i,2}.z_v, zeros(1,2), 'rv', 'MarkerFaceColor','r'); hold off
 end
 xlabel('Distance (m)');  exportgraphics(gcf, fullfile(expdir,'exp1_resolution.png'), figopt{:});
@@ -32,10 +32,10 @@ Tws = [50 100 200]*1e-9;
 for i = 1:numel(Tws)
     r = run_case(struct('Tw',Tws(i)), sprintf('exp2_Tw%dns',round(Tws(i)*1e9)), '', false);
     [pk,kk] = max(r.Ev);  base = median(r.Ev);
-    half = pk - (pk-base)/2;                                     % full width at half maximum of the peak
-    lo = kk; while lo > 1 && r.Ev(lo) > half, lo = lo - 1; end
-    hi = kk; while hi < numel(r.Ev) && r.Ev(hi) > half, hi = hi + 1; end
-    r.fwhm = r.zax(hi) - r.zax(lo);  r.noise_floor = base;  r.peak = pk;  r.snr = pk/base;
+    win = abs(r.zax - r.zax(kk)) < 60;                          % window around the event
+    above = find(win & r.Ev > 2*base);                            % samples clearly above the noise floor
+    r.fwhm = r.zax(max(above)) - r.zax(min(above));               % extent of the response (m)
+    r.noise_floor = base;  r.peak = pk;  r.snr = pk/base;
     r.dz_res = evalin('base','dz_res');
     R.exp2(i).Tw = Tws(i);  R.exp2(i).r = r;
 end
@@ -43,7 +43,7 @@ figure('Position',[100 100 900 700]);
 for i = 1:numel(Tws)
     r = R.exp2(i).r;
     subplot(3,1,i); plot(r.zax, r.Ev*1e9); grid on; xlim([1150 1280]); ylabel('Std (nA)');
-    title(sprintf('T_w = %d ns: resolution %.1f m, peak/noise floor = %.1f, FWHM = %.1f m', round(Tws(i)*1e9), r.dz_res, r.snr, r.fwhm));
+    title(sprintf('T_w = %d ns: resolution %.1f m, peak/noise floor = %.1f, extent = %.0f m', round(Tws(i)*1e9), r.dz_res, r.snr, r.fwhm));
 end
 xlabel('Distance (m)');  exportgraphics(gcf, fullfile(expdir,'exp2_pulse_width.png'), figopt{:});
 
@@ -72,30 +72,44 @@ xlabel('Distance (m)'); ylabel('Std over time (nA)'); legend('vibration on','vib
 exportgraphics(gcf, fullfile(expdir,'exp4_otdr_vs_phiotdr.png'), figopt{:});
 
 %% 5) Coherent fading: different fibres (seeds)
-seeds = 1:12;
+%  Each seed is a different random fibre. The phase error is measured against the injected waveform
+%  (circular standard deviation, so phase wraps do not matter). To show what a weak backscatter amplitude
+%  does, receiver noise is added to the two COTDR samples: the noise is additive at the detector output,
+%  so this is the same as a receiver with a larger sigma_n.
+seeds = 1:12;  sigx = 2e-7;                      % extra receiver noise per I and Q component [A]
 for i = 1:numel(seeds)
     r = run_case(struct('seed',seeds(i)), sprintf('exp5_seed%d',seeds(i)), '', true);
     R.exp5(i).seed = seeds(i);  R.exp5(i).r = r;
 end
-resid = arrayfun(@(e) e.r.resid, R.exp5);   fade = arrayfun(@(e) e.r.fade, R.exp5);
-amp = arrayfun(@(e) e.r.amp, R.exp5);       loc = arrayfun(@(e) e.r.loc, R.exp5);
-[~,best] = min(resid);  [~,worst] = max(resid);
+tax = R.exp5(1).r.tax;  ideal = 1*sin(2*pi*200*tax);           % injected waveform of event 1 (Phi0 = 1 rad, 200 Hz)
+rng(7);
+for i = 1:numel(seeds)
+    r = R.exp5(i).r;
+    n1 = sigx*(randn(size(r.C1)) + 1j*randn(size(r.C1)));  n2 = sigx*(randn(size(r.C2)) + 1j*randn(size(r.C2)));
+    raw0 = angle(r.C2.*conj(r.C1));  raw1 = angle((r.C2+n2).*conj(r.C1+n1));
+    R.exp5(i).err0 = circstd(raw0, ideal);   R.exp5(i).err1 = circstd(raw1, ideal);
+    off = angle(mean(exp(1j*(raw1-ideal))));          % constant phase between the two samples (static fibre phase)
+    R.exp5(i).wave1 = angle(exp(1j*(raw1 - off)));
+    R.exp5(i).fade = r.fade;  R.exp5(i).loc = r.loc;
+end
+err0 = [R.exp5.err0];  err1 = [R.exp5.err1];  fade = [R.exp5.fade];
+[~,best] = min(err1);  [~,worst] = max(err1);
 figure('Position',[100 100 1000 650]);
-subplot(2,2,1); bar(seeds, resid); grid on; xlabel('Seed (fibre)'); ylabel('Residual (rad)'); title('Waveform error vs seed');
-subplot(2,2,2); scatter(fade, resid, 40, 'filled'); grid on; xlabel('Weakest |C| at k1,k2 / median |C|'); ylabel('Residual (rad)');
-title('Fading: weak backscatter -> noisy phase');
-for j = 1:numel(seeds), text(fade(j), resid(j), sprintf('  %d',seeds(j))); end
-subplot(2,2,3); plot(R.exp5(best).r.tax*1e3, R.exp5(best).r.dphi); grid on; xlim([0 50]);
-xlabel('Time (ms)'); ylabel('\Delta\phi (rad)'); title(sprintf('Best fibre (seed %d): residual %.2f rad', seeds(best), resid(best)));
-subplot(2,2,4); plot(R.exp5(worst).r.tax*1e3, R.exp5(worst).r.dphi); grid on; xlim([0 50]);
-xlabel('Time (ms)'); ylabel('\Delta\phi (rad)'); title(sprintf('Worst fibre (seed %d): residual %.2f rad', seeds(worst), resid(worst)));
+subplot(2,2,1); bar(seeds, [err0; err1]'); grid on; xlabel('Seed (fibre)'); ylabel('Phase error (rad)');
+title('Phase error vs fibre'); legend('normal receiver','noisy receiver','Location','northwest');
+subplot(2,2,2); scatter(fade, err1, 40, 'filled'); grid on; xlabel('Weakest amplitude at k1,k2 / median');
+ylabel('Phase error (rad)'); title('Noisy receiver: weak backscatter -> large error');
+for j = 1:numel(seeds), text(fade(j), err1(j), sprintf('  %d',seeds(j))); end
+subplot(2,2,3); plot(tax*1e3, R.exp5(best).wave1, '.', tax*1e3, ideal, '-'); grid on; xlim([0 50]);
+xlabel('Time (ms)'); ylabel('\Delta\phi (rad)'); title(sprintf('Best fibre (seed %d): error %.2f rad', seeds(best), err1(best)));
+subplot(2,2,4); plot(tax*1e3, R.exp5(worst).wave1, '.', tax*1e3, ideal, '-'); grid on; xlim([0 50]);
+xlabel('Time (ms)'); ylabel('\Delta\phi (rad)'); title(sprintf('Worst fibre (seed %d): error %.2f rad', seeds(worst), err1(worst)));
 exportgraphics(gcf, fullfile(expdir,'exp5_fading.png'), figopt{:});
 close all
-R.exp5_summary = struct('seeds',seeds,'resid',resid,'fade',fade,'amp',amp,'loc',loc,'best',seeds(best),'worst',seeds(worst));
+R.exp5_summary = struct('seeds',seeds,'sigx',sigx,'err0',err0,'err1',err1,'fade',fade,'loc',[R.exp5.loc],'best',seeds(best),'worst',seeds(worst));
 
 %% results -> docs/validation_results.md
 write_results(R, fullfile(root,'docs','validation_results.md'));
-save(fullfile(root,'docs','validation_results.mat'),'R');
 evalin('base','clear ovr figsub tag nofig');
 fprintf('All experiments done.\n');
 
@@ -116,6 +130,21 @@ r.Tsim = evalin('base','T_sim');  r.dz_res = evalin('base','dz_res');
 fprintf('%-18s loc %.1f m | amp %.2f rad | f %.0f Hz | resid %.2f | fade %.2f\n', sub, r.loc, r.amp, r.freq, r.resid, r.fade);
 end
 
+function g = response_groups(z, Ev)
+%RESPONSE_GROUPS  [start end] (m) of the runs of samples above 2x the noise floor around the strongest event,
+%  where a run ends when 3 or more consecutive samples fall back to the noise floor
+base = median(Ev);  [~,k] = max(Ev);
+idx = find(abs(z - z(k)) < 60 & Ev > 2*base);
+cut = [0; find(diff(idx) > 3); numel(idx)];
+g = zeros(numel(cut)-1, 2);
+for i = 1:numel(cut)-1, g(i,:) = [z(idx(cut(i)+1)) z(idx(cut(i+1)))]; end
+end
+
+function e = circstd(raw, ideal)
+%CIRCSTD  circular standard deviation (rad) of the phase error raw - ideal
+d = raw - ideal;  e = sqrt(-2*log(abs(mean(exp(1j*d)))));
+end
+
 function c = clusters(z, Ev, thr, gap)
 %CLUSTERS  positions of the peaks of Ev above thr, merged when closer than gap metres
 idx = find(Ev > thr);  c = [];
@@ -127,22 +156,22 @@ end
 
 function write_results(R, file)
 s = '';  A = @(s,varargin) [s sprintf(varargin{:})];
-s = A(s,'# Validation experiments: results\n\nGenerated by `scripts/run_experiments.m`. Default parameters: L = 2 km, Tw = 100 ns, f_rep = 10 kHz, events at 1200 m (200 Hz, 1 rad) and 1500 m (500 Hz, 0.5 rad), 2001 pulses.\n');
-s = A(s,'## 1. Spatial resolution (dz = c*Tw/(2n) = %.1f m)\n\n| Event spacing | Peaks found | Positions (m) |\n|---|---|---|\n', R.exp1.z5.dz_res);
-s = A(s,'| 5 m | %d | %s |\n', numel(R.exp1.z5.clusters), mat2str(round(R.exp1.z5.clusters,1)));
-s = A(s,'| 20 m | %d | %s |\n\n', numel(R.exp1.z20.clusters), mat2str(round(R.exp1.z20.clusters,1)));
-s = A(s,'Figure: `figures/experiments/exp1_resolution.png`. Events closer than the resolution merge into one peak; farther apart they are resolved.\n\n');
-s = A(s,'## 2. Pulse width\n\n| Tw (ns) | Resolution (m) | Peak (nA) | Noise floor (nA) | Peak/floor | FWHM (m) |\n|---|---|---|---|---|---|\n');
+s = A(s,'# Validation experiments: results\n\nGenerated by `scripts/run_experiments.m`. Default parameters: L = 2 km, Tw = 100 ns, f_rep = 10 kHz, events at 1200 m (200 Hz, 1 rad) and 1500 m (500 Hz, 0.5 rad), 2001 pulses. In experiment 1 both events have 1 rad.\n');
+s = A(s,'## 1. Spatial resolution (dz = c*Tw/(2n) = %.1f m)\n\nTwo events of 1 rad (200 Hz and 500 Hz). The response is the part of the fibre where the detected intensity changes over time more than twice the noise floor; separate responses are separated by at least 3 samples (about 3 m) at the noise floor.\n\n| Event spacing | Separate responses | Extent of each response (m) |\n|---|---|---|\n', R.exp1.z5.dz_res);
+s = A(s,'| 5 m | %d | %s |\n', size(R.exp1.z5.groups,1), mat2str(round(R.exp1.z5.groups(:,2)-R.exp1.z5.groups(:,1),1)'));
+s = A(s,'| 20 m | %d | %s |\n\n', size(R.exp1.z20.groups,1), mat2str(round(R.exp1.z20.groups(:,2)-R.exp1.z20.groups(:,1),1)'));
+s = A(s,'Figure: `figures/experiments/exp1_resolution.png`. The response of one event is about as long as the spatial resolution plus the disturbed section. Events 5 m apart (below the resolution) merge into one response; events 20 m apart are resolved into two.\n\n');
+s = A(s,'## 2. Pulse width\n\n| Tw (ns) | Resolution (m) | Peak (nA) | Noise floor (nA) | Peak/floor | Extent above 2x floor (m) |\n|---|---|---|---|---|---|\n');
 for i = 1:numel(R.exp2)
     r = R.exp2(i).r;  s = A(s,'| %d | %.1f | %.1f | %.2f | %.1f | %.1f |\n', round(R.exp2(i).Tw*1e9), r.dz_res, r.peak*1e9, r.noise_floor*1e9, r.snr, r.fwhm);
 end
-s = A(s,'\nFigure: `figures/experiments/exp2_pulse_width.png`. A longer pulse widens the peak (worse resolution) and raises the detected signal (better SNR).\n\n');
+s = A(s,'\nFigure: `figures/experiments/exp2_pulse_width.png`. A longer pulse widens the response (worse resolution) and raises the detected signal (better SNR).\n\n');
 s = A(s,'## 3. Frequency limit (Nyquist)\n\nf_v(1) = 6000 Hz, f_rep = 10 kHz -> expected alias |6000 - 10000| = 4000 Hz. Detected frequency: **%.0f Hz**. The unambiguous limit is f_rep/2 = 5 kHz (f_rep <= c/(2nL) = 51 kHz for 2 km).\n\nFigure: `figures/experiments/exp3_aliasing.png`.\n\n', R.exp3.freq);
 s = A(s,'## 4. OTDR vs Phi-OTDR with the same vibration\n\n- Conventional OTDR: largest difference between the traces with and without vibration = %.3g (relative %.3g): **unaffected**.\n', R.exp4.otdr_max_diff, R.exp4.otdr_rel);
 s = A(s,'- Phi-OTDR: relative difference of the detected intensity = %.2f: **the vibration is detected**.\n\nFigure: `figures/experiments/exp4_otdr_vs_phiotdr.png`.\n\n', R.exp4.dd_rel);
 S = R.exp5_summary;
-s = A(s,'## 5. Coherent fading (different fibres)\n\n| Seed | Detected position (m) | Amplitude (rad) | Weakest |C| / median | Residual (rad) |\n|---|---|---|---|---|\n');
-for i = 1:numel(S.seeds), s = A(s,'| %d | %.1f | %.2f | %.2f | %.2f |\n', S.seeds(i), S.loc(i), S.amp(i), S.fade(i), S.resid(i)); end
-s = A(s,'\nBest seed: %d, worst seed: %d. A low weakest-|C| ratio (the event lands on a fading point) goes with a noisy recovered phase; shifting k1/k2 by a few samples in `das_postprocess.m` restores it.\n\nFigure: `figures/experiments/exp5_fading.png`.\n', S.best, S.worst);
+s = A(s,'## 5. Coherent fading (different fibres)\n\nThe fibre (random scatterers) changes with the seed, so the event lands on a different speckle value. The phase error is the circular standard deviation of the recovered phase against the injected 200 Hz, 1 rad waveform. The noisy receiver adds %.0f nA of noise per I and Q component to the two COTDR samples (additive at the detector output, equivalent to a larger sigma_n).\n\n| Seed | Detected position (m) | Weakest amplitude / median | Phase error, normal receiver (rad) | Phase error, noisy receiver (rad) |\n|---|---|---|---|---|\n', S.sigx*1e9);
+for i = 1:numel(S.seeds), s = A(s,'| %d | %.1f | %.2f | %.3f | %.2f |\n', S.seeds(i), S.loc(i), S.fade(i), S.err0(i), S.err1(i)); end
+s = A(s,'\nWith the normal receiver (1 nA) every fibre gives a clean waveform (error below 0.11 rad), even when the weakest amplitude is only a third of the median. With the noisy receiver the best fibre is seed %d (error %.2f rad) and the worst is seed %d (error %.2f rad): when the event lands on a fading point (small amplitude at k1 or k2) the recovered phase becomes noisy, a live example of coherent fading (Shang, Section 3.2). Shifting k1 and k2 by a few samples in `das_postprocess.m` moves them away from the fading point.\n\nFigure: `figures/experiments/exp5_fading.png`.\n', S.best, S.err1(S.seeds==S.best), S.worst, S.err1(S.seeds==S.worst));
 fid = fopen(file,'w');  fwrite(fid, s, 'char');  fclose(fid);
 end

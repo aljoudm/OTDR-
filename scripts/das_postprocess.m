@@ -74,6 +74,7 @@ fprintf('Recovered amplitude = %.2f rad, frequency = %.0f Hz (residual %.2f rad,
         res.amp, res.freq, res.resid, res.fade);
 % If dphi is noisy, k1 or k2 fell in a fading point (|C| small): move them by a few samples.
 res.D = D;  res.k = k;
+res.C1 = C(k1,:);  res.C2 = C(k2,:);          % the two COTDR samples used (for the fading experiment)
 
 %% Local function: To Workspace "Array" logs Ns x 1 x Np (2-D frames) or Np x Ns (1-D vectors)
 function X = local_frames(X, Ns)
