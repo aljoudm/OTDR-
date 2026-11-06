@@ -17,12 +17,12 @@ new_system(mdl);
 set_param(mdl,'ScreenColor','white','ShowLineDimensions','off','ShowPortDataTypes','off', ...
     'SampleTimeColors','off','ShowStorageClass','off','ShowTestPointIcons','off');
 set_param(0,'HiliteAncestorsData',[ ...
-    struct('HiliteType','user1','ForegroundColor','blue','BackgroundColor','white'), ...
-    struct('HiliteType','user2','ForegroundColor','orange','BackgroundColor','white')]);
+    struct('HiliteType','user1','ForegroundColor','blue','BackgroundColor','blue'), ...
+    struct('HiliteType','user2','ForegroundColor','orange','BackgroundColor','orange')]);
 
 PHI = char(934);
-X = struct('laser',40,'cp1',165,'aom',250,'edfa',400,'circ',540,'fut',690,'cp2',650,'pd',740);
-AX = [130 410 690];                         % signal axis of the three panels
+X = struct('laser',40,'cp1',165,'aom',250,'edfa',400,'circ',540,'fut',652,'cp2',650,'pd',740);
+AX = [100 350 600];                         % signal axis of the three panels
 titles = {'(a) OTDR', ['(b) ' PHI '-OTDR'], '(c) COTDR'};
 tags   = {'', '+ NLL, + AOM', '+ 2 couplers, + LO path, + I/Q detection'};
 fibre = [];  lo = [];
@@ -30,11 +30,11 @@ fibre = [];  lo = [];
 for p = 1:3
     A = AX(p);  c = struct();
     t = Simulink.Annotation(mdl, titles{p});
-    t.FontName = 'Helvetica'; t.FontSize = 15; t.FontWeight = 'bold'; t.Position = [X.laser A-98];
+    t.FontName = 'Helvetica'; t.FontSize = 15; t.FontWeight = 'bold'; t.Position = [X.laser A-74];
     if ~isempty(tags{p})
         g = Simulink.Annotation(mdl, tags{p});
         g.FontName = 'Helvetica'; g.FontSize = 11; g.BackgroundColor = '[0.98 0.76 0.72]';
-        g.Position = [X.laser+170 A-96];
+        g.Position = [X.laser+170 A-72];
     end
     yRet = A + 115;                                   % row of the detector
     xc   = X.circ + 50;                               % circulator centre (x)
@@ -55,15 +55,15 @@ for p = 1:3
     end
     c.edfa = comp(mdl,'edfa','EDFA',        'tri', 'EDFA',         X.edfa,A, 80,50,false);    par(mdl,c.edfa,'+10 dB');
     c.circ = comp(mdl,'circ','Circulator',  'ell', 'circulator',   X.circ,A,100,50,false);
-    c.fut  = comp(mdl,iff(p==1,'fut_inc','fut_coh'),'FUT','fut','FUT',X.fut,A,160,50,false);  par(mdl,c.fut,'2 km SMF');
+    c.fut  = comp(mdl,iff(p==1,'fut_inc','fut_coh'),'FUT','fut','FUT',X.fut,A,198,50,false);  par(mdl,c.fut,'2 km SMF');
     % circulator parameter sits beside the return line, not on top of it
-    a = Simulink.Annotation(mdl,'0.8 dB'); a.FontName='Helvetica'; a.FontSize=10; a.Position=[xc+8 A+25+8];
+    a = Simulink.Annotation(mdl,'0.8 dB'); a.FontName='Helvetica'; a.FontSize=10; a.Position=[xc-8-31 A+25+8];
 
     % ---- detector side
     if p < 3
         kind = 'pd_pow'; if p == 2, kind = 'pd_int'; end
         c.pd = comp(mdl,kind,'PD','rect','PD',X.pd,yRet,90,50,false);
-        par(mdl,c.pd,iff(p==1,'power','intensity'));
+        par(mdl,c.pd,'intensity');
     else
         c.cp2 = comp(mdl,'coupler2','coupler','ell','',X.cp2,yRet,40,30,true,'out1');  par(mdl,c.cp2,'beat with LO');
         cap(mdl,c.cp2,'coupler');
@@ -109,11 +109,13 @@ for h = fibre, set_param(h,'HiliteAncestors','user1'); end
 for h = lo,    set_param(h,'HiliteAncestors','user2'); end
 
 % legend
-yL = AX(3) + 215;
+yL = AX(3) + 222;
+swatch(mdl,'legend_inherited',X.laser,yL,false);
 k1 = Simulink.Annotation(mdl,'Inherited from the previous panel'); k1.FontName='Helvetica'; k1.FontSize=11;
-k1.BackgroundColor='[0.78 0.87 0.97]'; k1.Position=[X.laser yL];
+k1.Position=[X.laser+42 yL+2];
+swatch(mdl,'legend_new',X.laser+260,yL,true);
 k2 = Simulink.Annotation(mdl,'New in this panel'); k2.FontName='Helvetica'; k2.FontSize=11;
-k2.BackgroundColor='[0.98 0.76 0.72]'; k2.Position=[X.laser+260 yL];
+k2.Position=[X.laser+302 yL+2];
 % white padding so the exported image keeps a margin
 for pp = [10 10; 900 yL+40]'
     pad = Simulink.Annotation(mdl,'.'); pad.ForegroundColor = 'white'; pad.Position = pp';
@@ -188,52 +190,61 @@ add_block('built-in/Subsystem', blk, 'Position',[x axisY-h/2 x+w axisY+h/2]);
 Simulink.SubSystem.deleteContents(blk);
 fill_inside(blk, kind, struct('scr',fullfile(fileparts(mfilename('fullpath')),'..','..','scripts')));
 set_param(blk,'ShowName','off','ShowPortLabels','none','FontName','Helvetica','FontSize',11,'ForegroundColor','black');
-icon(blk, shape, label, isNew);
 ph = get_param(blk,'PortHandles');
+q  = get_param(blk,'Position');  hh = q(4) - q(2);
+cyF = 0.5;                                          % icon centre (fraction from the bottom)
+if strcmp(kind,'coupler1'), cp = ph.Inport(1); elseif strcmp(kind,'coupler2'), cp = ph.Outport(1); else, cp = []; end
+if ~isempty(cp), pp = get_param(cp,'Position'); cyF = 1 - (pp(2)-q(2))/hh; end   % ellipse centred on the signal port
+icon(blk, shape, label, isNew, cyF, 0.04, 0.08);
 switch ref
     case 'out1', r = ph.Outport(1);
     otherwise
         if ~isempty(ph.Inport), r = ph.Inport(1); else, r = ph.Outport(1); end
 end
 rp = get_param(r,'Position');  dy = axisY - rp(2);
-q  = get_param(blk,'Position');  set_param(blk,'Position',q + [0 dy 0 dy]);
+set_param(blk,'Position',q + [0 dy 0 dy]);
 end
 
-function icon(blk, shape, label, isNew)
-%  inherited = light blue + thin black outline; new = coral + thick coral border (nested outlines)
-blue = '[0.78 0.87 0.97]';  coral = '[0.98 0.76 0.72]';  dark = '[0.80 0.30 0.22]';
-th = 'linspace(0,2*pi,41)';
-if isNew, fillc = coral; else, fillc = blue; end
-switch shape
-    case 'rect', xs = [0.01 0.99 0.99 0.01 0.01];   ys = [0.01 0.01 0.99 0.99 0.01]; c = [0.5 0.5];
-    case 'tri',  xs = [0.02 0.02 0.98 0.02];         ys = [0.02 0.98 0.5 0.02];       c = [0.34 0.5];
-    otherwise,   xs = []; ys = []; c = [0.5 0.5];
+function swatch(mdl, name, x, y, isNew)
+%  legend box drawn exactly like the component boxes
+blk = [mdl '/' name];
+add_block('built-in/Subsystem', blk, 'Position',[x y x+32 y+20]);
+Simulink.SubSystem.deleteContents(blk);
+set_param(blk,'ShowName','off','ForegroundColor','black');
+icon(blk,'rect','',isNew,0.5,0.10,0.16);
 end
-d = '';
+
+function icon(blk, shape, label, isNew, cyF, ix, iy)
+%  inherited = light blue + thin black outline; new = coral fill inside ONE thick orange border
+blue = '[0.78 0.87 0.97]';  coral = '[0.98 0.76 0.72]';  orng = '[0.98 0.55 0.10]';
+th = 'linspace(0,2*pi,61)';
+switch shape
+    case 'rect', xs = [0.01 0.99 0.99 0.01 0.01];   ys = [0.01 0.01 0.99 0.99 0.01];
+    case 'tri',  xs = [0.02 0.02 0.98 0.02];         ys = [0.02 0.98 0.5 0.02];
+    otherwise,   xs = []; ys = [];
+end
 if strcmp(shape,'ell')
-    cx = '0.5+0.49*cos(linspace(0,2*pi,41))';  cy = '0.5+0.49*sin(linspace(0,2*pi,41))';
-    if isNew, fe = coral; else, fe = '[1 1 1]'; end
-    d = ['color(''black'');patch(' cx ',' cy ',' fe ');'];
+    rx = 0.49; ry = 0.46; c0 = num2str(cyF);
+    cx = ['0.5+' num2str(rx) '*cos(' th ')'];  cy = [c0 '+' num2str(ry) '*sin(' th ')'];
     if isNew
-        for f = [1 0.965 0.93], d = [d 'color(''orange'');plot(0.5+' num2str(0.49*f) '*cos(' th '),0.5+' num2str(0.49*f) '*sin(' th '));']; end %#ok<AGROW>
+        cx2 = ['0.5+' num2str(rx-ix*1.7) '*cos(' th ')'];  cy2 = [c0 '+' num2str(ry-iy*1.5) '*sin(' th ')'];
+        d = ['patch(' cx ',' cy ',' orng ');patch(' cx2 ',' cy2 ',' coral ');'];
     else
-        d = [d 'color(''black'');plot(' cx ',' cy ');'];
+        d = ['patch(' cx ',' cy ',[1 1 1]);color(''black'');plot(' cx ',' cy ');'];
     end
 elseif strcmp(shape,'fut')
     loops = '';
     for k = 0:3
-        loops = [loops 'plot(' num2str(0.40+0.07*k) '+0.07*cos(' th '),0.74+0.22*sin(' th '));']; %#ok<AGROW>
+        loops = [loops 'plot(' num2str(0.50+0.06*k) '+0.06*cos(' th '),0.74+0.22*sin(' th '));']; %#ok<AGROW>
     end
     d = ['color(''blue'');plot([0 1],[0.5 0.5]);' loops];
+elseif isNew          % one thick border = orange patch with a smaller coral patch on top
+    c = [mean(xs(1:end-1)) mean(ys(1:end-1))];
+    fx = 1 - 2*ix;  fy = 1 - 2*iy;
+    if strcmp(shape,'rect'), xi = c(1)+fx*(xs(1:end-1)-c(1)); yi = c(2)+fy*(ys(1:end-1)-c(2)); else, xi = xs; yi = ys; end
+    d = ['patch(' mat2str(xs(1:end-1)) ',' mat2str(ys(1:end-1)) ',' orng ');patch(' mat2str(xi) ',' mat2str(yi) ',' coral ');'];
 else
-    d = ['color(''black'');patch(' mat2str(xs(1:end-1)) ',' mat2str(ys(1:end-1)) ',' fillc ');'];
-    if isNew
-        for f = [1 0.965 0.93]
-            d = [d 'color(''orange'');plot(' mat2str(c(1)+f*(xs-c(1))) ',' mat2str(c(2)+f*(ys-c(2))) ');']; %#ok<AGROW>
-        end
-    else
-        d = [d 'color(''black'');plot(' mat2str(xs) ',' mat2str(ys) ');'];
-    end
+    d = ['patch(' mat2str(xs(1:end-1)) ',' mat2str(ys(1:end-1)) ',' blue ');color(''black'');plot(' mat2str(xs) ',' mat2str(ys) ');'];
 end
 parts = strsplit(label,'|');
 tx = 0.5; if strcmp(shape,'tri'), tx = 0.33; end
